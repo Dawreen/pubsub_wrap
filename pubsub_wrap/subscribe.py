@@ -1,21 +1,24 @@
 import os
+import json
 from google.cloud import pubsub_v1
 
-topic_name = 'projects/{project_id}/topics/{topic}'.format(
-    project_id=os.getenv('GOOGLE_CLOUD_PROJECT'),
-    topic='MY_TOPIC_NAME',  # Set this to something appropriate.
-)
 
-subscription_name = 'projects/{project_id}/subscriptions/{sub}'.format(
-    project_id=os.getenv('GOOGLE_CLOUD_PROJECT'),
-    sub='MY_SUBSCRIPTION_NAME',  # Set this to something appropriate.
-)
+with open("conf.json", "r") as conf_file:
+    data = json.load(conf_file)
+    project_id = data["project_id"]
+    topic_id = data["topic"]
+    subscription_id = data["subscription_id"]
 
-def callback(message):
-    print(message.data)
-    message.ack()
+publisher = pubsub_v1.PublisherClient()
+subscriber = pubsub_v1.SubscriberClient()
+topic_path = publisher.topic_path(project_id, topic_id)
+subscription_path = subscriber.subscription_path(project_id, subscription_id)
 
-with pubsub_v1.SubscriberClient() as subscriber:
-    subscriber.create_subscription(
-        name=subscription_name, topic=topic_name)
-    future = subscriber.subscribe(subscription_name, callback)
+# Wrap the subscriber in a 'with' block to automatically call close() to
+# close the underlying gRPC channel when done.
+with subscriber:
+    subscription = subscriber.create_subscription(
+        request={"name": subscription_path, "topic": topic_path}
+    )
+
+print(f"Subscription created: {subscription}")
